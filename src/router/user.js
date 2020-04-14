@@ -137,10 +137,12 @@ router.post('/users/logout', auth, async (req, res) => {
     }
 })
 
-router.post('/users/logoutAll', auth, async () =>{
+router.post('/users/logoutAll', auth, async (req, res) =>{
     try{
         req.user.tokens = []
         req.user.save()
+
+        res.status(200).send({status: 'Logged out from all devices....!'})
     }catch(e){
         res.status(500).seend()
     }
