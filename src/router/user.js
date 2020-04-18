@@ -2,6 +2,7 @@ const express = require('express')
 const User = require('../models/user')
 const auth = require('../middleware/authentication')
 const multer = require('multer')
+const sharp = require('sharp')
 const router = new express.Router()
 
 
@@ -46,29 +47,6 @@ router.get('/users', async (req, res) => {
     //     res.status(500).send(e)
     // })
 })
-
-// router.get('/users/:id', async (req, res) => {
-//     const _id = req.params.id;
-//     try{
-//         const user = await User.findById(_id)
-//         if(!user){
-//             return res.status(404).send()
-//         }
-//         res.send(user)
-//     }catch(e){
-//         res.status(404).send(e)
-//     }
-
-//     // User.findById(_id).then((user) => {
-//     //     if(!user){
-//     //         return res.status(404).send()
-//     //     }
-//     //     res.send(user)
-//     // }).catch((e) => {
-//     //     res.status(404).send(e)
-//     // })
-// })
-
 
 router.post('/users/login', async (req, res) => {
 
@@ -154,7 +132,12 @@ const upload = multer({
 })
 
 router.post('/users/me/avatar', auth, upload.single('avatar'), async (req, res) => {
-    req.user.avatar = req.file.buffer
+    const buffer = await sharp(req.file.buffer).resize({
+        height: 350,
+        width: 350
+    }).png().toBuffer()
+
+    req.user.avatar = buffer
     await req.user.save()
     res.send({status: 'File uploaded successfully'})    
 }, (error, req, res, next) => {
@@ -169,15 +152,13 @@ router.delete('/users/me/avatar', auth, async (req, res) => {
 })
 
 router.get('/users/:id/avatar', async (req, res) => {
-
     const user = await User.findById(req.params.id)
+
     try{
         if(!user || !user.avatar){
             throw new Error()
         }
-        res.set('Content-Type', 'image/jpg').send(user.avatar)
-        
-
+        res.set('Content-Type', 'image/png').send(user.avatar)
     }catch(e){
         res.send(404)
     }

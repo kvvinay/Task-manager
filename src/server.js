@@ -2,9 +2,12 @@ const express = require('express')
 require('./db/mongoose')
 const userRouter = require('../src/router/user')
 const taskRouter = require('../src/router/task')
+const path = require('path')
+// require('dotenv').config({path : path.join(__dirname,'../config/dev.env')}) // Alternate for configuting .env file
+
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT
 
 // app.use( (req, res, next) => {
 
@@ -65,5 +68,5 @@ app.use(userRouter, taskRouter)
 
 
 app.listen(PORT, () => {
-    console.log('Server is started @ 3000')
+    console.log(`Server is started @ ${PORT}`)
 })
