@@ -1,6 +1,7 @@
 const express = require('express')
 const User = require('../models/user')
 const auth = require('../middleware/authentication')
+const multer = require('multer')
 const router = new express.Router()
 
 
@@ -10,7 +11,7 @@ router.post('/users', async (req, res) => {
 
     try{
         await me.save()
-        const token = await me.authToken()
+        const token = await me.generateNewToken()
         res.status(201).send({me, token})
     } catch(e) {
         res.status(400).send(e)
@@ -46,77 +47,34 @@ router.get('/users', async (req, res) => {
     // })
 })
 
-router.get('/users/:id', async (req, res) => {
-    const _id = req.params.id;
-    try{
-        const user = await User.findById(_id)
-        if(!user){
-            return res.status(404).send()
-        }
-        res.send(user)
-    }catch(e){
-        res.status(404).send(e)
-    }
+// router.get('/users/:id', async (req, res) => {
+//     const _id = req.params.id;
+//     try{
+//         const user = await User.findById(_id)
+//         if(!user){
+//             return res.status(404).send()
+//         }
+//         res.send(user)
+//     }catch(e){
+//         res.status(404).send(e)
+//     }
 
-    // User.findById(_id).then((user) => {
-    //     if(!user){
-    //         return res.status(404).send()
-    //     }
-    //     res.send(user)
-    // }).catch((e) => {
-    //     res.status(404).send(e)
-    // })
-})
-
-router.patch('/users/:id', async (req, res) => {
-    const abc = req.params.id
-    const update = ['name', 'email', 'password', 'age']
-    const needToUpdate = Object.keys(req.body)
-    const match = needToUpdate.every( compare => update.includes(compare))
-
-    if(!match){
-        return res.status(404).send({'error': 'Unmatched fields trying to update'})
-    }
-
-    try{
-        // const user = await User.findByIdAndUpdate(abc, req.body, { new: true, runValidators: true } )
-
-        const user = await User.findById(abc)
-        needToUpdate.forEach( (data) => {
-            user[data] = req.body[data]
-        })
-        await user.save()
-
-
-        if(!user){
-            res.status(404).send()
-        }
-        res.send(user)
-    }catch(e){
-        res.status(500).send(e)
-    }
-})
-
-router.delete('/users/:id', async (req, res) => {
-
-    try{
-        const a = await User.findByIdAndRemove(req.params.id)
-        if(!a){
-            return res.status(400).send({error: 'No match found'})
-        }
-        res.send(a)
-    }catch(e){
-        res.status(404).send(e)
-    }
-
-})
+//     // User.findById(_id).then((user) => {
+//     //     if(!user){
+//     //         return res.status(404).send()
+//     //     }
+//     //     res.send(user)
+//     // }).catch((e) => {
+//     //     res.status(404).send(e)
+//     // })
+// })
 
 
 router.post('/users/login', async (req, res) => {
 
     try{
         const user = await User.findByCredentials(req.body.email, req.body.password)
-        const token = await user.authToken()
+        const token = await user.generateNewToken()
         res.status(200).send({user, token})
     }catch(e){
         res.status(500).send(e)
@@ -145,6 +103,83 @@ router.post('/users/logoutAll', auth, async (req, res) =>{
         res.status(200).send({status: 'Logged out from all devices....!'})
     }catch(e){
         res.status(500).seend()
+    }
+})
+
+router.patch('/users/me', auth, async (req, res) => {
+    const update = ['name', 'email', 'password', 'age']
+    const needToUpdate = Object.keys(req.body)
+    const match = needToUpdate.every( compare => update.includes(compare))
+
+    if(!match){
+        return res.status(404).send({'error': 'Unmatched fields trying to update'})
+    }
+
+    try{
+        // const user = await User.findByIdAndUpdate(abc, req.body, { new: true, runValidators: true } )
+
+        const user = await req.user
+        needToUpdate.forEach( (data) => {
+            user[data] = req.body[data]
+        })
+        await user.save()
+
+        res.send(user)
+    }catch(e){
+        res.status(500).send(e)
+    }
+})
+
+router.delete('/users/me', auth, async (req, res) => {
+
+    try{
+       const user = await req.user.remove()
+       res.send(user)
+    }catch(e){
+        res.status(404).send(e)
+    }
+
+})
+
+const upload = multer({
+    limits: {
+        fileSize: 7000000
+    },
+    fileFilter(req, file, cb) {
+        if(!file.originalname.match(/\.(jpg|jpeg|png)$/)){
+            return cb(new Error('File must be an Image'))
+        }
+        cb(undefined, true)
+    }
+})
+
+router.post('/users/me/avatar', auth, upload.single('avatar'), async (req, res) => {
+    req.user.avatar = req.file.buffer
+    await req.user.save()
+    res.send({status: 'File uploaded successfully'})    
+}, (error, req, res, next) => {
+    res.status(400).send({error: error.message})
+})
+
+router.delete('/users/me/avatar', auth, async (req, res) => {
+
+    req.user.avatar = undefined
+    await req.user.save()
+    res.send({status: 'Image deleted successfully'})
+})
+
+router.get('/users/:id/avatar', async (req, res) => {
+
+    const user = await User.findById(req.params.id)
+    try{
+        if(!user || !user.avatar){
+            throw new Error()
+        }
+        res.set('Content-Type', 'image/jpg').send(user.avatar)
+        
+
+    }catch(e){
+        res.send(404)
     }
 })
 
